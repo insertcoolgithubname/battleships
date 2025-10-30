@@ -11,14 +11,39 @@ class Board():
     """
     Player's board that contains their fleet.
     """
-    def __init__(self, side_length: int):
+    def __init__(self, side_length: int, fleet_class: 'Fleet'):
         # creates matrix side_length * side_length
+        self._side_length = side_length
         self._board_list = [[(BoardElement()) for i in range(side_length)] for j in range(side_length)]
-        self.fleet_object = Fleet(self)
+        # argument is actual fleet child class
+        self.fleet_object: 'Fleet' = fleet_class()
+
+        # first is row index, second is col
+        self.ship_occupied_indexes: list[list[int]] = []
+        # ships and all tiles adjacent
+        self.restricted_indexes: list[list[int]] = []
 
     @property
     def board_list(self) -> list:
         return self._board_list
+
+    # def shuffle_fleet_position(self):
+    #     # picks random non restricted space
+        
+    #     # set operations much faster
+    #     chosen_row = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[0])))
+    #     chosen_col = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[1])))
+    #     chosen_space = self._board_list[chosen_row][chosen_col]
+    #     print(chosen_space)
+    #     # creates the indexes for all ships to be present at
+    #     pass
+
+    def check_if_ship_fits(self, ship: 'Battleship', row_index: int, col_index: int):
+        """
+        Takes a Battleship instance and checks if it fits into the board at a given index
+         (if it does not overlap any restricted indexes)
+        """
+        pass
 
     def get_element_of_index(self, row_index: int, col_index: int) -> 'BoardElement':
         """
@@ -101,29 +126,43 @@ class BattleshipBoardElement(BoardElement):
 
 
 class Fleet():
-    def __init__(self, parent_board):
-        self.parent_board = parent_board
-        self._battleship_list = [Destroyer()]
+    """
+    Configuration/template of what ships are present
+    """
+    def __init__(self, batlleship_list: list['Battleship']):
+        self._battleship_list: list['Battleship'] = batlleship_list
+
+
+# These different fleets should be moved to a config file outside of the script
+class BasicFleet(Fleet):
+    def __init__(self):
+        super().__init__(batlleship_list=[Destroyer(), Flagship()])
 
 
 class Battleship():
     def __init__(self, length):
         self._length: int = length
+        # len of occupied_indexes must be equal to ship length
+        self.occupied_indexes = []
 
     @property
     def length(self) -> int:
         return self._length
 
 
-# @dataclass
-# how to use dataclasses with super
+# These different battleships should be moved to a config file outside of the script
 class Destroyer(Battleship):
     def __init__(self):
         super().__init__(length=3)
 
 
-my_board = Board(side_length=10)
+class Flagship(Battleship):
+    def __init__(self):
+        super().__init__(length=4)
+
+
+my_board = Board(side_length=10, fleet_class=BasicFleet)
+
 # my_board.get_element_of_index(5, 5).shot_at = True
-# print(my_board)
-my_fleet = Fleet(parent_board=my_board)
-print(my_fleet._battleship_list[0].length)
+print(my_board.fleet_object._battleship_list)
+# print(my_fleet._battleship_list[0].length)
