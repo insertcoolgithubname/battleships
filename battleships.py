@@ -2,6 +2,14 @@ import random
 from enum import Enum
 from dataclasses import dataclass
 
+
+class Orientation(Enum):
+    Up = 1
+    Right = 2
+    Down = 3
+    Left = 4
+
+
 class Battle():
     def __init__(self):
         pass
@@ -21,7 +29,7 @@ class Board():
         # first is row index, second is col
         self.ship_occupied_indexes: list[list[int]] = []
         # ships and all tiles adjacent
-        self.restricted_indexes: list[list[int]] = []
+        self._restricted_indexes: list[list[int]] = []
 
     @property
     def board_list(self) -> list:
@@ -29,7 +37,7 @@ class Board():
 
     # def shuffle_fleet_position(self):
     #     # picks random non restricted space
-        
+
     #     # set operations much faster
     #     chosen_row = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[0])))
     #     chosen_col = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[1])))
@@ -38,25 +46,78 @@ class Board():
     #     # creates the indexes for all ships to be present at
     #     pass
 
-    def check_if_ship_fits(self, ship: 'Battleship', row_index: int, col_index: int):
+    @property
+    def restricted_indexes(self):
+        return self._restricted_indexes
+
+    def add_to_restricted_indexes(self, index_list: list[list[int]]):
+        """
+        Adds the given indexes to the restriced indexes list.\n
+        Also supports a single index as list
+        """
+        if type(index_list[0]) is int:
+            index_list = [index_list]
+        for index in index_list:
+            if self.is_valid_index(index=index):
+                self._restricted_indexes.append(index)
+            else:
+                raise IndexError
+
+    def check_if_ship_fits(self, ship: 'Battleship', index: list[int],
+                           orientation: 'Orientation' = Orientation.Up) -> bool:
         """
         Takes a Battleship instance and checks if it fits into the board at a given index
          (if it does not overlap any restricted indexes)
         """
-        pass
+        for i in range(ship.length):
 
-    def get_element_of_index(self, row_index: int, col_index: int) -> 'BoardElement':
+            match orientation:
+                case Orientation.Up:
+                    # move by 1 up the collumn -> must change row index
+                    current_index = [index[0] - i, index[1]]
+                case Orientation.Right:
+                    # move by 1 right the row -> must change col index
+                    current_index = [index[0], index[1] + i]
+                case Orientation.Down:
+                    # move by 1 down the col -> must change row index
+                    current_index = [index[0] + i, index[1]]
+                case Orientation.Left:
+                    # move by 1 left the row -> must change col index
+                    current_index = [index[0], index[1] - i]
+
+            print(f"current index: {current_index}")
+            if self.is_valid_index(index=current_index):
+                if self.is_in_restricted(index=current_index):
+                    return False
+            else:
+                return False
+        return True
+
+    def is_in_restricted(self, index: list[int]):
+        for restricted_index in self._restricted_indexes:
+            if index[0] == restricted_index[0] and index[1] == restricted_index[1]:
+                return True
+        return False
+
+    def is_valid_index(self, index: list[int]) -> bool:
+        if len(self._board_list[0]) < index[0] or index[0] <= 0:
+            return False
+        if len(self._board_list[0]) < index[1] or index[1] <= 0:
+            return False
+        return True
+
+    def get_element_of_index(self, index: list[int]) -> 'BoardElement':
         """
-        returns element on the board list specified by row_index and col_index.\n
+        returns element on the board list specified by index list (first position: row index, second: col index).\n
         Indexes are numbered starting with 1.
         """
         # raise exceptions when indexes are out of range
-        if len(self._board_list[0]) < row_index:
+        if not self.is_valid_index(index=[index[0], 1]):
             raise IndexError("Attempted to get element of invalid row_index")
-        if len(self._board_list[0]) < col_index:
+        if not self.is_valid_index(index=[1, index[1]]):
             raise IndexError("Attempted to get element of invalid col_index")
 
-        return self._board_list[row_index - 1][col_index - 1]
+        return self._board_list[index[0] - 1][index[1] - 1]
 
     def __str__(self):
         """
@@ -163,6 +224,12 @@ class Flagship(Battleship):
 
 my_board = Board(side_length=10, fleet_class=BasicFleet)
 
-# my_board.get_element_of_index(5, 5).shot_at = True
-print(my_board.fleet_object._battleship_list)
-# print(my_fleet._battleship_list[0].length)
+
+if __name__ == "__main__":
+    # my_board.get_element_of_index(5, 5).shot_at = True
+    print(my_board)
+    # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
+    ship = my_board.fleet_object._battleship_list[0]
+    print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Left)}")
+    my_board.add_to_restricted_indexes([1, 1])
+    # print(my_fleet._battleship_list[0].length)
