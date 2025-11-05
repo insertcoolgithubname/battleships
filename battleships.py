@@ -50,16 +50,33 @@ class Board():
     def restricted_indexes(self):
         return self._restricted_indexes
 
+    def get_adjacent_indexes(self, index: list[int]) -> list[list[int]]:
+        """
+        Returns list of adjacent indexes on the board. Does not return invalid indexes outside of the board.
+        Does nt include given index
+        """
+        # goes through 3 indexes (-1, 0, 1) to get full adjacent collumn
+        out_index_list = []
+        for r in range(-1, 2):
+            for s in range(-1, 2):
+                if self.is_valid_index(index=[index[0] + r, index[1] + s]):
+                    out_index_list.append([index[0] + r, index[1] + s])
+                    # print([index[0] + r, index[1] + s])
+        out_index_list.remove(index)
+        return out_index_list
+
     def add_to_restricted_indexes(self, index_list: list[list[int]]):
         """
-        Adds the given indexes to the restriced indexes list.\n
+        Adds the given indexes to the restriced indexes list.
         Also supports a single index as list
         """
         if type(index_list[0]) is int:
             index_list = [index_list]
         for index in index_list:
             if self.is_valid_index(index=index):
-                self._restricted_indexes.append(index)
+                # do not add duplicates
+                if (index not in self._restricted_indexes):
+                    self._restricted_indexes.append(index)
             else:
                 raise IndexError
 
@@ -222,14 +239,14 @@ class Flagship(Battleship):
         super().__init__(length=4)
 
 
-my_board = Board(side_length=10, fleet_class=BasicFleet)
 
 
 if __name__ == "__main__":
+    my_board = Board(side_length=10, fleet_class=BasicFleet)
     # my_board.get_element_of_index(5, 5).shot_at = True
-    print(my_board)
+    # print(my_board)
     # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
-    ship = my_board.fleet_object._battleship_list[0]
-    print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Left)}")
-    my_board.add_to_restricted_indexes([1, 1])
+    # ship = my_board.fleet_object._battleship_list[0]
+    # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Left)}")
+    # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)
