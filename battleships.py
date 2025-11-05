@@ -39,7 +39,7 @@ class Board():
         return self._board_list
 
     @property
-    def battleship_list(self) -> list:
+    def battleship_list(self) -> list['Battleship']:
         return self._battleship_list
 
     # def shuffle_fleet_position(self):
@@ -54,8 +54,33 @@ class Board():
     #     pass
 
     @property
-    def restricted_indexes(self):
+    def restricted_indexes(self) -> list[list[int]]:
         return self._restricted_indexes
+
+    def shoot_at_index(self, index: list[int]):
+        """
+        Sets shot at of a given index, returns if the entire board was destroyed
+        """
+        element = self.get_element_of_index(index=index)
+        element.shot_at = True
+        # For optimalisation (so we dont call is_alive every time)
+        if isinstance((self.get_element_of_index(index=index)), BattleshipBoardElement):
+            element: BattleshipBoardElement = element
+            if element.parent_battleship.destroyed is True:
+                return not (self.is_alive())
+        return False
+
+    def refresh_all_ship_destruction(self):
+        for ship in self.battleship_list:
+            ship.refresh_destroyed()
+
+    def is_alive(self):
+        self.refresh_all_ship_destruction()
+        alive = False
+        for ship in self.battleship_list:
+            if not ship.destroyed:
+                alive = True
+        return alive
 
     def get_adjacent_indexes(self, index: list[int]) -> list[list[int]]:
         """
@@ -230,6 +255,9 @@ class BoardElement():
         set new value of self._shot_at\n
         can techniccally un-shoot a tile
         """
+        self._set_shot_at(new_state=new_state)
+
+    def _set_shot_at(self, new_state):
         self._shot_at = new_state
 
     def __str__(self) -> str:
@@ -255,11 +283,20 @@ class OceanBoardElement(BoardElement):
 class BattleshipBoardElement(BoardElement):
     def __init__(self, parent_battleship):
         super().__init__()
-        self._parent_battleship = parent_battleship
+        self._parent_battleship: 'Battleship' = parent_battleship
 
     @property
     def parent_battleship(self):
         return self._parent_battleship
+
+    @property
+    def shot_at(self) -> bool:
+        return super().shot_at
+
+    @shot_at.setter
+    def shot_at(self, new_state: bool):
+        super()._set_shot_at(new_state=new_state)
+        self.parent_battleship.refresh_destroyed()
 
     def __str__(self) -> str:
         if self.shot_at is False:
@@ -309,8 +346,11 @@ class Battleship():
         self._parent_board = new_board
 
     def refresh_destroyed(self):
-        # for occupied_index
-        pass
+        alive = False
+        for occupied_index in self.occupied_indexes:
+            if self.parent_board.get_element_of_index(index=occupied_index).shot_at == False:
+                alive = True
+        self._destroyed = not alive
 
 
 # These different battleships should be moved to a config file outside of the script
@@ -332,9 +372,15 @@ if __name__ == "__main__":
     ship1 = Destroyer()
     ship2 = Flagship()
     # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Right)}")
-    my_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
-    my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
+    my_board.add_ship_to_board(ship=ship1, index=[10, 1], orientation=Orientation.Right)
+    # my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
+    print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
     print(f"\n{my_board}\n")
+    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 2])}")
+    print(f"\n{my_board}\n")
+    print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
+    print(f"\n{my_board}\n")
+    print(f"board is alive?: {my_board.is_alive()}")
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)

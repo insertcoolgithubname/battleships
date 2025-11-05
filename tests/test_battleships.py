@@ -53,6 +53,44 @@ def test_get_adjacent_indexes():
         [9, 9], [9, 10], [10, 9]]
 
 
+def test_shoot_at_index():
+    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    ship1 = Destroyer()
+    ship2 = Destroyer()
+    test_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
+    test_board.add_ship_to_board(ship=ship2, index=[3, 1], orientation=Orientation.Right)
+
+    test_board.shoot_at_index(index=[1, 1])
+    # Shooting will set the target shot_at
+    assert test_board.get_element_of_index(index=[1, 1]).shot_at is True
+    # Shooting once will not destroy the ship
+    assert ship1.destroyed is False
+    assert test_board.is_alive() is True
+    test_board.shoot_at_index(index=[1, 2])
+    assert ship1.destroyed is False
+    assert test_board.is_alive() is True
+    test_board.shoot_at_index(index=[2, 1])
+    # Shooting will set the target shot_at
+    assert test_board.get_element_of_index(index=[2, 1]).shot_at is True
+    # Shooting into water has no effect on victory
+    assert test_board.is_alive() is True
+    test_board.shoot_at_index(index=[1, 3])
+    # This shot will destroy the ship, second ship remains
+    assert ship1.destroyed is True
+
+    # Second ship
+    test_board.shoot_at_index(index=[3, 1])
+    assert ship2.destroyed is False
+    assert test_board.is_alive() is True
+    test_board.shoot_at_index(index=[3, 2])
+    assert ship2.destroyed is False
+    assert test_board.is_alive() is True
+    test_board.shoot_at_index(index=[3, 3])
+    assert ship2.destroyed is True
+    # Entire board is dead
+    assert test_board.is_alive() is False
+
+
 def test_add_ship_to_board():
     test_board = Board(side_length=10, fleet_class=BasicFleet)
     ship1 = Destroyer()
