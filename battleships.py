@@ -1,6 +1,7 @@
 import random
 from enum import Enum
 from dataclasses import dataclass
+from colorama import init, Fore, Style, Back
 
 
 class Orientation(Enum):
@@ -25,6 +26,8 @@ class Board():
         self._board_list = [[(BoardElement()) for i in range(side_length)] for j in range(side_length)]
         # argument is actual fleet child class
         self.fleet_object: 'Fleet' = fleet_class()
+        # list of references to actual present battleship objects
+        self._battleship_list: list['Battleship'] = []
 
         # first is row index, second is col
         self.ship_occupied_indexes: list[list[int]] = []
@@ -34,6 +37,10 @@ class Board():
     @property
     def board_list(self) -> list:
         return self._board_list
+
+    @property
+    def battleship_list(self) -> list:
+        return self._battleship_list
 
     # def shuffle_fleet_position(self):
     #     # picks random non restricted space
@@ -61,7 +68,6 @@ class Board():
             for s in range(-1, 2):
                 if self.is_valid_index(index=[index[0] + r, index[1] + s]):
                     out_index_list.append([index[0] + r, index[1] + s])
-                    # print([index[0] + r, index[1] + s])
         out_index_list.remove(index)
         return out_index_list
 
@@ -102,13 +108,59 @@ class Board():
                     # move by 1 left the row -> must change col index
                     current_index = [index[0], index[1] - i]
 
-            print(f"current index: {current_index}")
             if self.is_valid_index(index=current_index):
+                # We no longer need to check for adjacency, as we add adjacent indexes to restricted on ship creation
+                # # Also cannot be adjacent to a ship
+                # for adjacent_index in self.get_adjacent_indexes(index=current_index):
+                #     if isinstance((self.get_element_of_index(adjacent_index)), BattleshipBoardElement):
+                #         return False
                 if self.is_in_restricted(index=current_index):
                     return False
             else:
                 return False
         return True
+
+    def add_ship_to_board(self, ship: 'Battleship', index: list[int], orientation: 'Orientation') -> bool:
+        """
+        Attempts to add ship to board at the given index and orientation,
+        returns True if successful, otherwise returns false.
+        """
+        # This checks if ship fits to board
+        if (self.check_if_ship_fits(index=index, orientation=orientation, ship=ship) and
+                # Do not add ship if it is already present
+                ship not in self._battleship_list):
+            for i in range(ship.length):
+                match orientation:
+                    case Orientation.Up:
+                        # move by 1 up the collumn -> must change row index
+                        current_index = [index[0] - i, index[1]]
+                    case Orientation.Right:
+                        # move by 1 right the row -> must change col index
+                        current_index = [index[0], index[1] + i]
+                    case Orientation.Down:
+                        # move by 1 down the col -> must change row index
+                        current_index = [index[0] + i, index[1]]
+                    case Orientation.Left:
+                        # move by 1 left the row -> must change col index
+                        current_index = [index[0], index[1] - i]
+                # Index is valid (ie ship fits)
+
+                # Actually adding the ship
+                # Adds all adjacent indexes of ship into restricted
+                self.add_to_restricted_indexes(self.get_adjacent_indexes(current_index))
+                # Adds self to restricted indexes
+                self.add_to_restricted_indexes(current_index)
+                # Sets board element to be ship board element
+                self.set_element_of_index(index=current_index,
+                                          new_object=BattleshipBoardElement(parent_battleship=ship))
+                # Add index to ship inner var ship_occupied_indexes
+                ship.occupied_indexes.append(current_index)
+            # Add ship to battleship list
+            self._battleship_list.append(ship)
+            # Successful
+            return True
+        else:
+            return False
 
     def is_in_restricted(self, index: list[int]):
         for restricted_index in self._restricted_indexes:
@@ -135,6 +187,18 @@ class Board():
             raise IndexError("Attempted to get element of invalid col_index")
 
         return self._board_list[index[0] - 1][index[1] - 1]
+
+    def set_element_of_index(self, index: list[int], new_object) -> bool:
+        """
+        Sets the board element of given index to be new_object
+        """
+        # raise exceptions when indexes are out of range
+        if not self.is_valid_index(index=[index[0], 1]):
+            raise IndexError("Attempted to get element of invalid row_index")
+        if not self.is_valid_index(index=[1, index[1]]):
+            raise IndexError("Attempted to get element of invalid col_index")
+
+        self._board_list[index[0] - 1][index[1] - 1] = new_object
 
     def __str__(self):
         """
@@ -173,7 +237,7 @@ class BoardElement():
 
     def __str__(self) -> str:
         if self.shot_at is False:
-            return "0"
+            return f"{Style.DIM}0{Style.RESET_ALL}"
         if self.shot_at is True:
             return "#"
         else:
@@ -196,11 +260,17 @@ class BattleshipBoardElement(BoardElement):
         super().__init__()
         self._parent_battleship = parent_battleship
 
+    @property
+    def parent_battleship(self):
+        return self._parent_battleship
+
     def __str__(self) -> str:
+        if self.shot_at is False:
+            return f"{Fore.BLUE}S{Fore.RESET}"
         if self.shot_at is True:
-            return "X"
+            return f"{Fore.RED}X{Fore.RESET}"
         else:
-            return super().__str__()
+            return ""
 
 
 class Fleet():
@@ -221,7 +291,7 @@ class Battleship():
     def __init__(self, length):
         self._length: int = length
         # len of occupied_indexes must be equal to ship length
-        self.occupied_indexes = []
+        self.occupied_indexes: list[list[int]] = []
 
     @property
     def length(self) -> int:
@@ -239,14 +309,18 @@ class Flagship(Battleship):
         super().__init__(length=4)
 
 
-
-
 if __name__ == "__main__":
     my_board = Board(side_length=10, fleet_class=BasicFleet)
     # my_board.get_element_of_index(5, 5).shot_at = True
-    # print(my_board)
+    # print(f"\n{my_board}\n")
     # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
-    # ship = my_board.fleet_object._battleship_list[0]
-    # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Left)}")
+    ship1 = Destroyer()
+    ship2 = Flagship()
+    # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Right)}")
+    my_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
+    my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
+    print(f"\n{my_board}\n")
+    print(my_board._battleship_list[0].occupied_indexes)
+    # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)

@@ -1,4 +1,4 @@
-from battleships import Board, BasicFleet, Destroyer, Orientation
+from battleships import Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement
 
 
 def test_is_in_restricted():
@@ -51,6 +51,43 @@ def test_get_adjacent_indexes():
         [1, 9], [2, 9], [2, 10]]
     assert test_board.get_adjacent_indexes([10, 10]) == [
         [9, 9], [9, 10], [10, 9]]
+
+
+def test_add_ship_to_board():
+    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    ship1 = Destroyer()
+    ship2 = Destroyer()
+    ship3 = Flagship()
+
+    # This ship will not fit
+    assert not test_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Up)
+    # This ship will, ie returns True as successful
+    assert test_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
+    # Will not add same ship twice
+    assert not test_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
+    # Correctly added to list
+    assert ship1 in test_board.battleship_list
+    # All indexes present
+    assert len(ship1.occupied_indexes) == ship1.length
+    for index in ship1.occupied_indexes:
+        assert isinstance((test_board.get_element_of_index(index=index)), BattleshipBoardElement)
+        current_board_element: BattleshipBoardElement = test_board.get_element_of_index(index=index)
+        # Each board element has proper parent battleship
+        assert current_board_element.parent_battleship == ship1
+    # Correctly added to restricted indexes
+    for index in ship1.occupied_indexes:
+        for adjacent_index in test_board.get_adjacent_indexes(index):
+            assert adjacent_index in test_board.restricted_indexes
+        assert index in test_board.restricted_indexes
+
+    # Will not fit into the same space
+    assert not test_board.add_ship_to_board(ship=ship2, index=[1, 1], orientation=Orientation.Right)
+    # Will not fit due to adjacency
+    assert not test_board.add_ship_to_board(ship=ship2, index=[2, 1], orientation=Orientation.Right)
+    # Will fit as the distance is far enough
+    assert test_board.add_ship_to_board(ship=ship2, index=[3, 1], orientation=Orientation.Right)
+    # Will fit
+    assert test_board.add_ship_to_board(ship=ship3, index=[2, 5], orientation=Orientation.Down)
 
 
 def test_check_if_ship_fits():
