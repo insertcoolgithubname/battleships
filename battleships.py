@@ -109,11 +109,6 @@ class Board():
                     current_index = [index[0], index[1] - i]
 
             if self.is_valid_index(index=current_index):
-                # We no longer need to check for adjacency, as we add adjacent indexes to restricted on ship creation
-                # # Also cannot be adjacent to a ship
-                # for adjacent_index in self.get_adjacent_indexes(index=current_index):
-                #     if isinstance((self.get_element_of_index(adjacent_index)), BattleshipBoardElement):
-                #         return False
                 if self.is_in_restricted(index=current_index):
                     return False
             else:
@@ -157,6 +152,8 @@ class Board():
                 ship.occupied_indexes.append(current_index)
             # Add ship to battleship list
             self._battleship_list.append(ship)
+            # Give ship parent board
+            ship.parent_board = self
             # Successful
             return True
         else:
@@ -292,10 +289,28 @@ class Battleship():
         self._length: int = length
         # len of occupied_indexes must be equal to ship length
         self.occupied_indexes: list[list[int]] = []
+        self._parent_board = None
+        self._destroyed = False
 
     @property
     def length(self) -> int:
         return self._length
+
+    @property
+    def destroyed(self) -> bool:
+        return self._destroyed
+
+    @property
+    def parent_board(self) -> 'Board':
+        return self._parent_board
+
+    @parent_board.setter
+    def parent_board(self, new_board: 'Board'):
+        self._parent_board = new_board
+
+    def refresh_destroyed(self):
+        # for occupied_index
+        pass
 
 
 # These different battleships should be moved to a config file outside of the script
@@ -320,7 +335,6 @@ if __name__ == "__main__":
     my_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
     my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
     print(f"\n{my_board}\n")
-    print(my_board._battleship_list[0].occupied_indexes)
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)

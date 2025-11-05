@@ -79,6 +79,8 @@ def test_add_ship_to_board():
         for adjacent_index in test_board.get_adjacent_indexes(index):
             assert adjacent_index in test_board.restricted_indexes
         assert index in test_board.restricted_indexes
+    # Ship has proper parent board
+    assert ship1.parent_board == test_board
 
     # Will not fit into the same space
     assert not test_board.add_ship_to_board(ship=ship2, index=[1, 1], orientation=Orientation.Right)
