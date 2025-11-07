@@ -1,11 +1,13 @@
 from battleships import Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement
+import pytest
 
 
-def test_is_in_restricted():
+def test_is_valid_index():
 
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
 
     assert test_board.is_valid_index(index=[1, 1])
+    assert test_board.is_valid_index(index=(1, 1))
     # indexes start with 1 (like matrixes in maths)
     assert not test_board.is_valid_index(index=[0, 1])
     assert not test_board.is_valid_index(index=[1, 0])
@@ -20,9 +22,25 @@ def test_is_in_restricted():
     assert not test_board.is_valid_index(index=[11, 11])
 
 
+def test_add_fleet_to_board():
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
+    # will successfully complete
+    assert test_board.add_fleet_to_board()
+    # should also call on creation
+    for i in range(10):
+        test_board = Board(side_length=10, fleet_class=BasicFleet)
+    # adds all ships from template
+    assert len(test_board.fleet_object.battleship_list) == len(test_board.battleship_list)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
+    test_board.add_fleet_to_board()
+    # Will not fit twice
+    with pytest.raises(TimeoutError, match="Could not add ship to board as it is full"):
+        test_board.add_fleet_to_board()
+
+
 def test_add_to_restricted_indexes():
     # Add single index
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     test_board.add_to_restricted_indexes([1, 2])
     test_board.add_to_restricted_indexes([1, 2])
     test_board.add_to_restricted_indexes([3, 8])
@@ -33,7 +51,7 @@ def test_add_to_restricted_indexes():
     assert len(test_board.restricted_indexes) == 2
 
     # Add multiple indexes
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     test_board.add_to_restricted_indexes([[1, 2], [3, 1], [1, 1]])
     assert [1, 2] in test_board.restricted_indexes
     assert [3, 1] in test_board.restricted_indexes
@@ -42,7 +60,7 @@ def test_add_to_restricted_indexes():
 
 
 def test_get_adjacent_indexes():
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     assert test_board.get_adjacent_indexes([2, 2]) == [
         [1, 1], [1, 2], [1, 3], [2, 1], [2, 3], [3, 1], [3, 2], [3, 3]]
     assert test_board.get_adjacent_indexes([1, 2]) == [
@@ -54,7 +72,7 @@ def test_get_adjacent_indexes():
 
 
 def test_shoot_at_index():
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     ship1 = Destroyer()
     ship2 = Destroyer()
     test_board.add_ship_to_board(ship=ship1, index=[1, 1], orientation=Orientation.Right)
@@ -92,7 +110,7 @@ def test_shoot_at_index():
 
 
 def test_add_ship_to_board():
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     ship1 = Destroyer()
     ship2 = Destroyer()
     ship3 = Flagship()
@@ -132,7 +150,7 @@ def test_add_ship_to_board():
 
 def test_check_if_ship_fits():
 
-    test_board = Board(side_length=10, fleet_class=BasicFleet)
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
     # Testing at empty board
 
     # Testing out of bounds

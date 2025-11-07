@@ -20,7 +20,7 @@ class Board():
     """
     Player's board that contains their fleet.
     """
-    def __init__(self, side_length: int, fleet_class: 'Fleet'):
+    def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False):
         # creates matrix side_length * side_length
         self._side_length = side_length
         self._board_list = [[(BoardElement()) for i in range(side_length)] for j in range(side_length)]
@@ -33,6 +33,8 @@ class Board():
         self.ship_occupied_indexes: list[list[int]] = []
         # ships and all tiles adjacent
         self._restricted_indexes: list[list[int]] = []
+        if not empty:
+            self.add_fleet_to_board()
 
     @property
     def board_list(self) -> list:
@@ -42,16 +44,41 @@ class Board():
     def battleship_list(self) -> list['Battleship']:
         return self._battleship_list
 
-    # def shuffle_fleet_position(self):
-    #     # picks random non restricted space
+    def add_fleet_to_board(self):
+        # create all indexes
+        all_indexes: list[list[int]] = []
+        for i in range(1, self._side_length + 1):
+            for j in range(1, self._side_length + 1):
+                all_indexes.append([i, j])
+        # create all orientations
+        all_orientations = [Orientation.Up, Orientation.Right, Orientation.Down, Orientation.Left]
 
-    #     # set operations much faster
-    #     chosen_row = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[0])))
-    #     chosen_col = random.choice(list(set([x for x in range(1, self._side_length)]) - set(self.ship_occupied_indexes[1])))
-    #     chosen_space = self._board_list[chosen_row][chosen_col]
-    #     print(chosen_space)
-    #     # creates the indexes for all ships to be present at
-    #     pass
+        for ship in self.fleet_object.battleship_list:
+            # with restricted indexes excluded
+            empty_indexes = [index for index in all_indexes if index not in self.restricted_indexes]
+
+            # try up to 500 times and then fail
+            success = False
+            for repeat in range(500):
+                # if all indexes have been exhausted
+                if len(empty_indexes) == 0:
+                    raise TimeoutError("Could not add ship to board as it is full")
+                # pick random index
+                chosen_index = random.choice(empty_indexes)
+                # exclude this index for future use
+                empty_indexes.remove(chosen_index)
+                # shuffle orientations so they will be tried in different orders
+                random.shuffle(all_orientations)
+                # loop trough orienations and try to add ships
+                for orientation in all_orientations:
+                    if self.add_ship_to_board(ship=ship, index=chosen_index, orientation=orientation):
+                        success = True
+                        break
+                if success is True:
+                    break
+            if success is False:
+                raise TimeoutError("Could not add ship to board in 500 attempts")
+        return True
 
     @property
     def restricted_indexes(self) -> list[list[int]]:
@@ -185,6 +212,8 @@ class Board():
             return False
 
     def is_in_restricted(self, index: list[int]):
+        # if len(self._restricted_indexes) == 0:
+        #     return False
         for restricted_index in self._restricted_indexes:
             if index[0] == restricted_index[0] and index[1] == restricted_index[1]:
                 return True
@@ -313,12 +342,21 @@ class Fleet():
     """
     def __init__(self, batlleship_list: list['Battleship']):
         self._battleship_list: list['Battleship'] = batlleship_list
+        # So the algortihm starts placing large ships
+        self._battleship_list.sort(reverse=True)
+
+    @property
+    def battleship_list(self):
+        return self._battleship_list
 
 
 # These different fleets should be moved to a config file outside of the script
 class BasicFleet(Fleet):
     def __init__(self):
-        super().__init__(batlleship_list=[Destroyer(), Flagship()])
+        super().__init__(batlleship_list=[Flagship(), Destroyer(), Destroyer(),
+                                          Cruiser(), Cruiser(), Cruiser(),
+                                          Scout(), Scout(), Scout(), Scout()
+                                          ])
 
 
 class Battleship():
@@ -328,6 +366,10 @@ class Battleship():
         self.occupied_indexes: list[list[int]] = []
         self._parent_board = None
         self._destroyed = False
+
+    # less than for sorting
+    def __lt__(self, other):
+        return self.length < other.length
 
     @property
     def length(self) -> int:
@@ -348,7 +390,7 @@ class Battleship():
     def refresh_destroyed(self):
         alive = False
         for occupied_index in self.occupied_indexes:
-            if self.parent_board.get_element_of_index(index=occupied_index).shot_at == False:
+            if self.parent_board.get_element_of_index(index=occupied_index).shot_at is False:
                 alive = True
         self._destroyed = not alive
 
@@ -364,23 +406,35 @@ class Flagship(Battleship):
         super().__init__(length=4)
 
 
+class Cruiser(Battleship):
+    def __init__(self):
+        super().__init__(length=2)
+
+
+class Scout(Battleship):
+    def __init__(self):
+        super().__init__(length=1)
+
+
 if __name__ == "__main__":
     my_board = Board(side_length=10, fleet_class=BasicFleet)
+    my_board.add_fleet_to_board()
     # my_board.get_element_of_index(5, 5).shot_at = True
     # print(f"\n{my_board}\n")
     # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
     ship1 = Destroyer()
     ship2 = Flagship()
+    # print(my_board.fleet_object.battleship_list)
     # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Right)}")
-    my_board.add_ship_to_board(ship=ship1, index=[10, 1], orientation=Orientation.Right)
+    # my_board.add_ship_to_board(ship=ship1, index=[10, 1], orientation=Orientation.Right)
     # my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
     print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
-    print(f"\n{my_board}\n")
+    # print(f"\n{my_board}\n")
     print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 2])}")
-    print(f"\n{my_board}\n")
+    # print(f"\n{my_board}\n")
     print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
     print(f"\n{my_board}\n")
-    print(f"board is alive?: {my_board.is_alive()}")
+    # print(f"board is alive?: {my_board.is_alive()}")
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)
