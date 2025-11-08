@@ -81,6 +81,8 @@ def test_shoot_at_index():
     test_board.shoot_at_index(index=[1, 1])
     # Shooting will set the target shot_at
     assert test_board.get_element_of_index(index=[1, 1]).shot_at is True
+    # Will add to shot at indexes
+    assert [1, 1] in test_board.shot_at_indexes
     # Shooting once will not destroy the ship
     assert ship1.destroyed is False
     assert test_board.is_alive() is True
@@ -95,6 +97,12 @@ def test_shoot_at_index():
     test_board.shoot_at_index(index=[1, 3])
     # This shot will destroy the ship, second ship remains
     assert ship1.destroyed is True
+    # will shoot at all surrounding ocean tiles
+    for ship_index in ship1.occupied_indexes:
+        for adjacent in test_board.get_adjacent_indexes(index=ship_index):
+            assert test_board.get_element_of_index(index=adjacent).shot_at is True
+            # will be added to shot at indexes
+            assert adjacent in test_board.shot_at_indexes
 
     # Second ship
     test_board.shoot_at_index(index=[3, 1])

@@ -16,6 +16,19 @@ class Battle():
         pass
 
 
+class Strategy():
+    """
+    The strategy to be used by a player in the battle. Contains methods for picking the next shot coordinates
+    made to be overridden by children. The forced_moves variable is a dict of move index and shoot at index.
+    """
+
+    def __init__(self):
+        self.forced_moves: dict[int, list[int]] = {}
+
+    def choose_move(self, move_index):
+        pass
+
+
 class Board():
     """
     Player's board that contains their fleet.
@@ -23,7 +36,7 @@ class Board():
     def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False):
         # creates matrix side_length * side_length
         self._side_length = side_length
-        self._board_list = [[(BoardElement()) for i in range(side_length)] for j in range(side_length)]
+        self._board_list = [[(OceanBoardElement()) for i in range(side_length)] for j in range(side_length)]
         # argument is actual fleet child class
         self.fleet_object: 'Fleet' = fleet_class()
         # list of references to actual present battleship objects
@@ -31,8 +44,10 @@ class Board():
 
         # first is row index, second is col
         self.ship_occupied_indexes: list[list[int]] = []
-        # ships and all tiles adjacent
         self._restricted_indexes: list[list[int]] = []
+        "ships and all tiles adjacent"
+        self.shot_at_indexes: list[list[int]] = []
+        "Indexes that have already been shot at"
         if not empty:
             self.add_fleet_to_board()
 
@@ -90,6 +105,7 @@ class Board():
         """
         element = self.get_element_of_index(index=index)
         element.shot_at = True
+        self.shot_at_indexes.append(index)
         # For optimalisation (so we dont call is_alive every time)
         if isinstance((self.get_element_of_index(index=index)), BattleshipBoardElement):
             element: BattleshipBoardElement = element
@@ -372,12 +388,24 @@ class Battleship():
         return self.length < other.length
 
     @property
-    def length(self) -> int:
-        return self._length
+    def destroyed(self):
+        return self._destroyed
+
+    @destroyed.setter
+    def destroyed(self, new_value):
+        # So it only runs on first destruction check
+        if new_value is True and self._destroyed is False:
+            # shoot at all adjacent indexes
+            for index in self.occupied_indexes:
+                for adjacent_index in (self.parent_board.get_adjacent_indexes(index=index)):
+                    # Can only hit the ocean tiles
+                    if isinstance(self.parent_board.get_element_of_index(adjacent_index), OceanBoardElement):
+                        self.parent_board.shoot_at_index(index=adjacent_index)
+        self._destroyed = new_value
 
     @property
-    def destroyed(self) -> bool:
-        return self._destroyed
+    def length(self) -> int:
+        return self._length
 
     @property
     def parent_board(self) -> 'Board':
@@ -392,7 +420,7 @@ class Battleship():
         for occupied_index in self.occupied_indexes:
             if self.parent_board.get_element_of_index(index=occupied_index).shot_at is False:
                 alive = True
-        self._destroyed = not alive
+        self.destroyed = not alive
 
 
 # These different battleships should be moved to a config file outside of the script
@@ -418,21 +446,26 @@ class Scout(Battleship):
 
 if __name__ == "__main__":
     my_board = Board(side_length=10, fleet_class=BasicFleet)
-    my_board.add_fleet_to_board()
+    ship1 = Destroyer()
+    # my_board.add_ship_to_board(index=[1, 1], orientation=Orientation.Right, ship=ship1)
+    # my_board.add_fleet_to_board()
     # my_board.get_element_of_index(5, 5).shot_at = True
     # print(f"\n{my_board}\n")
     # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
-    ship1 = Destroyer()
-    ship2 = Flagship()
     # print(my_board.fleet_object.battleship_list)
     # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Right)}")
     # my_board.add_ship_to_board(ship=ship1, index=[10, 1], orientation=Orientation.Right)
     # my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
-    print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
+    # print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
     # print(f"\n{my_board}\n")
-    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 2])}")
+    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 1])}")
+    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 2])}")
+    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 3])}")
     # print(f"\n{my_board}\n")
-    print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
+    for i in range(1, 11):
+        for j in range(1, 6):
+            my_board.shoot_at_index(index=[j, i])
+    # print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
     print(f"\n{my_board}\n")
     # print(f"board is alive?: {my_board.is_alive()}")
     # print(my_board.restricted_indexes)
