@@ -25,7 +25,7 @@ class Strategy():
     def __init__(self):
         self.forced_moves: dict[int, list[int]] = {}
 
-    def choose_move(self, move_index):
+    def choose_move(self, move_index: list[int]) -> list[int]:
         pass
 
 
@@ -48,8 +48,17 @@ class Board():
         "ships and all tiles adjacent"
         self.shot_at_indexes: list[list[int]] = []
         "Indexes that have already been shot at"
+        self._all_indexes: list[list[int]] = []
+        "list of all valid indexes of board"
+        for i in range(1, self._side_length + 1):
+            for j in range(1, self._side_length + 1):
+                self._all_indexes.append([i, j])
         if not empty:
             self.add_fleet_to_board()
+
+    @property
+    def all_indexes(self):
+        return self._all_indexes
 
     @property
     def board_list(self) -> list:
@@ -60,17 +69,12 @@ class Board():
         return self._battleship_list
 
     def add_fleet_to_board(self):
-        # create all indexes
-        all_indexes: list[list[int]] = []
-        for i in range(1, self._side_length + 1):
-            for j in range(1, self._side_length + 1):
-                all_indexes.append([i, j])
         # create all orientations
         all_orientations = [Orientation.Up, Orientation.Right, Orientation.Down, Orientation.Left]
 
         for ship in self.fleet_object.battleship_list:
             # with restricted indexes excluded
-            empty_indexes = [index for index in all_indexes if index not in self.restricted_indexes]
+            empty_indexes = [index for index in self._all_indexes if index not in self.restricted_indexes]
 
             # try up to 500 times and then fail
             success = False
