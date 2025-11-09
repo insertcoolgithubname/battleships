@@ -507,14 +507,42 @@ class Battle():
         success = False
         for move in range(1, 501):
             # needs mechanic that allows second move after hit
-            if move % 2 == 1:
+            # player_to_play is currently last playing player of the last round
+            # if the last player hit ship
+            skip_move_order = False
+            # only on the second move and further
+            if move != 1:
+                # will not be undefined as it is defined at the end of the previous iteration
+                if last_player.strategy_object.move_history[-1].hit_ship:
+                    skip_move_order = True
+                    player_to_play = last_player
+                    # we do not change player_to_play
+            if move % 2 == 1 and not skip_move_order:
                 player_to_play = self.starting_player
                 waiting_player = self.second_player
-            if move % 2 == 0:
+            if move % 2 == 0 and not skip_move_order:
                 player_to_play = self.second_player
                 waiting_player = self.starting_player
-            # ceil will ensure proper indexing
-            move_index = ceil(move / 2)
+
+            # proper indexing
+            if move != 1:
+                if player_to_play is self.board1:
+                    if len(self.board1.strategy_object.move_history) == 0:
+                        move_index = 1
+                    else:
+                        move_index = self.board1.strategy_object.move_history[-1].move_index + 1
+                elif player_to_play is self.board2:
+                    if len(self.board2.strategy_object.move_history) == 0:
+                        move_index = 1
+                    else:
+                        move_index = self.board2.strategy_object.move_history[-1].move_index + 1
+            else:
+                move_index = 1
+
+            # if not skip_move_order:
+            #     move_index = ceil(move / 2)
+            # else:
+            #     move_index = last_player.strategy_object.move_history[-1].move_index + 1
 
             chosen_move = player_to_play.strategy_object.choose_move(move_index=move_index)
             # shoot at the other player
@@ -529,6 +557,7 @@ class Battle():
                                                                                   ))
             # stops when hit destroyed board
             # ~ 3 times faster than asking alive every time
+            last_player = player_to_play
             if move_destroyed_board:
                 success = True
                 break
@@ -605,8 +634,8 @@ if __name__ == "__main__":
     # print(f" history of player 1{my_battle_summary.player1_history}\n player 1 board\n{my_battle.board1}")
 
     t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=10000,
-                 starting_player=2)
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=50000,
+                 starting_player=0)
     t1 = time.time()
 
     total = abs(t0 - t1)
@@ -637,3 +666,4 @@ if __name__ == "__main__":
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)
+
