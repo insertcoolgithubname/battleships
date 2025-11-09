@@ -1,5 +1,9 @@
-from battleships import Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement
+from battleships import (Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement,
+                         Strategy, RandomStrategy, Battle, War, BattleSummary, WarSummary)
 import pytest
+
+test_complexity: int = 100
+"how many tries for non deterministic tests, must be divisible by 10"
 
 
 def test_is_valid_index():
@@ -27,7 +31,7 @@ def test_add_fleet_to_board():
     # will successfully complete
     assert test_board.add_fleet_to_board()
     # should also call on creation
-    for i in range(10):
+    for i in range(int(test_complexity / 10)):
         test_board = Board(side_length=10, fleet_class=BasicFleet)
     # adds all ships from template
     assert len(test_board.fleet_object.battleship_list) == len(test_board.battleship_list)
@@ -83,6 +87,8 @@ def test_shoot_at_index():
     assert test_board.get_element_of_index(index=[1, 1]).shot_at is True
     # Will add to shot at indexes
     assert [1, 1] in test_board.shot_at_indexes
+    # Will remove from living indexes
+    assert [1, 1] not in test_board.living_indexes
     # Shooting once will not destroy the ship
     assert ship1.destroyed is False
     assert test_board.is_alive() is True
@@ -103,6 +109,8 @@ def test_shoot_at_index():
             assert test_board.get_element_of_index(index=adjacent).shot_at is True
             # will be added to shot at indexes
             assert adjacent in test_board.shot_at_indexes
+            # will remove from living indexes
+            assert adjacent not in test_board.living_indexes
 
     # Second ship
     test_board.shoot_at_index(index=[3, 1])
@@ -185,3 +193,102 @@ def test_check_if_ship_fits():
     assert test_board.check_if_ship_fits(ship=Destroyer(), index=[3, 4], orientation=Orientation.Right)
     assert test_board.check_if_ship_fits(ship=Destroyer(), index=[3, 4], orientation=Orientation.Left)
     assert not test_board.check_if_ship_fits(ship=Destroyer(), index=[3, 4], orientation=Orientation.Down)
+
+
+def test_strategy():
+    test_board = Board(side_length=10, fleet_class=BasicFleet, empty=True)
+    my_strategy = RandomStrategy(parent_board=test_board)
+    my_strategy.hostile_board = test_board
+    for x in range(test_complexity):
+        chosen_index = my_strategy.choose_move(move_index=x)
+        assert chosen_index not in test_board.shot_at_indexes
+        assert chosen_index in test_board.living_indexes
+        assert chosen_index in test_board.all_indexes
+        assert test_board.is_valid_index(chosen_index)
+    my_strategy = Strategy(parent_board=test_board, forced_moves={1: [1, 1], 2: [5, 4], 8: [10, 8]})
+    my_strategy.hostile_board = test_board
+    for x in range(test_complexity):
+        chosen_index = my_strategy.choose_move(move_index=1)
+        assert chosen_index not in test_board.shot_at_indexes
+        assert chosen_index in test_board.living_indexes
+        assert chosen_index in test_board.all_indexes
+        assert chosen_index == [1, 1]
+        chosen_index = my_strategy.choose_move(move_index=x)
+        if x == 1:
+            assert chosen_index == [1, 1]
+        if x == 2:
+            assert chosen_index == [5, 4]
+        if x == 8:
+            assert chosen_index == [10, 8]
+        else:
+            assert chosen_index in test_board.living_indexes
+    my_strategy = RandomStrategy(parent_board=test_board)
+    my_strategy.hostile_board = test_board
+    assert len(test_board.living_indexes) == 100
+    for x in range(1, 101):
+        test_board.shoot_at_index(my_strategy.choose_move(move_index=x))
+    assert len(test_board.living_indexes) == 0
+    with pytest.raises(IndexError, match='Cannot choose from an empty sequence'):
+        my_strategy.choose_move(move_index=1)
+
+
+def test_battle():
+    for x in range(test_complexity):
+        my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, starting_player=1)
+        my_battle_summary: 'BattleSummary' = my_battle.play()
+        win_number_of_hits = 0
+        other_number_of_hits = 0
+        for index, history_element in enumerate(my_battle_summary.player1_history, start=1):
+            assert history_element.move_index == index
+            if history_element.hit_ship:
+                if my_battle_summary.victorious_player == 1:
+                    win_number_of_hits += 1
+                if my_battle_summary.victorious_player == 2:
+                    other_number_of_hits += 1
+        for index, history_element in enumerate(my_battle_summary.player2_history, start=1):
+            assert history_element.move_index == index
+            if history_element.hit_ship:
+                if my_battle_summary.victorious_player == 2:
+                    win_number_of_hits += 1
+                if my_battle_summary.victorious_player == 1:
+                    other_number_of_hits += 1
+        assert win_number_of_hits == 20
+        assert other_number_of_hits < 20
+        # each board can only hit up to a 100 times on the enemy 10 * 10 grid
+        assert len(my_battle_summary.player1_history) <= 100
+        assert len(my_battle_summary.player2_history) <= 100
+        # winning player must have taken the last turn
+        # victorious starting player has + 1 length on history
+        assert not my_battle.board1.is_alive() or not my_battle.board2.is_alive()
+        if my_battle.starting_player.is_alive():
+            assert len(my_battle.starting_player.strategy_object.move_history) == (
+                       len(my_battle.second_player.strategy_object.move_history) + 1)
+        # victorious second player has the same length on history
+        elif my_battle.second_player.is_alive():
+            assert len(my_battle.second_player.strategy_object.move_history) == (
+                       len(my_battle.starting_player.strategy_object.move_history))
+        # the total move indexes must match the player indexes combined
+        bigger_total_index = max(my_battle_summary.player1_history[-1].total_move_index,
+                                 my_battle_summary.player2_history[-1].total_move_index)
+        assert bigger_total_index == (my_battle_summary.player1_history[-1].move_index +
+                                      my_battle_summary.player2_history[-1].move_index)
+        # testing player starting order
+        # first player must have the first move out of both
+        assert my_battle_summary.player1_history[0].move_index == (
+               my_battle_summary.player1_history[0].total_move_index)
+        assert my_battle_summary.player1_history[0].total_move_index == 1
+        # second player has the second
+        assert my_battle_summary.player2_history[0].move_index == (
+                my_battle_summary.player2_history[0].total_move_index - 1)
+        assert my_battle_summary.player2_history[0].total_move_index == 2
+        # the same but with starting player flipped
+        my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, starting_player=2)
+        my_battle_summary: 'BattleSummary' = my_battle.play()
+        # first player must have the first move out of both
+        assert my_battle_summary.player2_history[0].move_index == (
+               my_battle_summary.player2_history[0].total_move_index)
+        assert my_battle_summary.player2_history[0].total_move_index == 1
+        # second player has the second
+        assert my_battle_summary.player1_history[0].move_index == (
+                my_battle_summary.player1_history[0].total_move_index - 1)
+        assert my_battle_summary.player1_history[0].total_move_index == 2

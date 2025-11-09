@@ -2,6 +2,8 @@ import random
 from enum import Enum
 from dataclasses import dataclass
 from colorama import init, Fore, Style, Back
+from math import ceil
+import time
 
 
 class Orientation(Enum):
@@ -11,29 +13,49 @@ class Orientation(Enum):
     Left = 4
 
 
-class Battle():
-    def __init__(self):
-        pass
-
-
 class Strategy():
     """
     The strategy to be used by a player in the battle. Contains methods for picking the next shot coordinates
     made to be overridden by children. The forced_moves variable is a dict of move index and shoot at index.
     """
 
-    def __init__(self):
-        self.forced_moves: dict[int, list[int]] = {}
+    def __init__(self, parent_board: 'Board', forced_moves: dict[int, list[int]]):
+        self._parent_board: 'Board' = parent_board
+        self.hostile_board: 'Board' = None
+        self.forced_moves: dict[int, list[int]] = forced_moves
+        self.move_history: list['MoveHistoryElement'] = []
 
-    def choose_move(self, move_index: list[int]) -> list[int]:
-        pass
+    def choose_move(self, move_index: int) -> list[int]:
+        if move_index in self.forced_moves:
+            return self.forced_moves[move_index]
+        # chooses randomly
+        return self.choosing_algorithm(move_index=move_index)
+
+    def choosing_algorithm(self, move_index: int) -> list[int]:
+        chosen_index = random.choice(self.hostile_board.living_indexes)
+        return chosen_index
+
+
+class RandomStrategy(Strategy):
+    def __init__(self, parent_board):
+        super().__init__(parent_board=parent_board, forced_moves={})
+
+
+@dataclass
+class MoveHistoryElement():
+    total_move_index: int
+    "The index in the total (both players) amount of moves"
+    move_index: int
+    "The index in the player's amount of moves"
+    hit_ship: bool
+    chosen_index: list[int]
 
 
 class Board():
     """
     Player's board that contains their fleet.
     """
-    def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False):
+    def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False, strategy_class: 'Strategy' = RandomStrategy):
         # creates matrix side_length * side_length
         self._side_length = side_length
         self._board_list = [[(OceanBoardElement()) for i in range(side_length)] for j in range(side_length)]
@@ -53,6 +75,9 @@ class Board():
         for i in range(1, self._side_length + 1):
             for j in range(1, self._side_length + 1):
                 self._all_indexes.append([i, j])
+        self.living_indexes: list[list[int]] = self.all_indexes
+        "list of all non shot at indexes of board"
+        self.strategy_object: 'Strategy' = strategy_class(parent_board=self)
         if not empty:
             self.add_fleet_to_board()
 
@@ -103,19 +128,26 @@ class Board():
     def restricted_indexes(self) -> list[list[int]]:
         return self._restricted_indexes
 
-    def shoot_at_index(self, index: list[int]):
+    def shoot_at_index(self, index: list[int]) -> list[bool]:
         """
-        Sets shot at of a given index, returns if the entire board was destroyed
+        Sets shot at of a given index, returns list of bools, first index True if hit ship, 
+        second if board was destroyed
         """
         element = self.get_element_of_index(index=index)
         element.shot_at = True
+        # add to "dead" indexes
         self.shot_at_indexes.append(index)
+        # remove from living indexes
+        if index in self.living_indexes:
+            self.living_indexes.remove(index)
         # For optimalisation (so we dont call is_alive every time)
+        hit_ship = False
         if isinstance((self.get_element_of_index(index=index)), BattleshipBoardElement):
+            hit_ship = True
             element: BattleshipBoardElement = element
             if element.parent_battleship.destroyed is True:
-                return not (self.is_alive())
-        return False
+                return (hit_ship, not (self.is_alive()))
+        return [hit_ship, False]
 
     def refresh_all_ship_destruction(self):
         for ship in self.battleship_list:
@@ -448,9 +480,147 @@ class Scout(Battleship):
         super().__init__(length=1)
 
 
+class Battle():
+    def __init__(self, strategy1_class: Strategy, strategy2_class: Strategy,
+                 fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1):
+        self.board1 = Board(side_length=side_length, fleet_class=fleet, strategy_class=strategy1_class)
+        self.board2 = Board(side_length=side_length, fleet_class=fleet, strategy_class=strategy2_class)
+        self.board1.strategy_object.hostile_board = self.board2
+        self.board2.strategy_object.hostile_board = self.board1
+
+        if starting_player == 1:
+            self.starting_player = self.board1
+            self.second_player = self.board2
+        elif starting_player == 2:
+            self.starting_player = self.board2
+            self.second_player = self.board1
+        elif starting_player == 0:
+            self.starting_player = random.choice([self.board1, self.board2])
+            if self.starting_player is self.board1:
+                self.second_player = self.board2
+            if self.starting_player is self.board2:
+                self.second_player = self.board1
+        else:
+            raise ValueError("Wrong starting player, use 1 or 2 to specify player, 0 for random")
+
+    def play(self):
+        success = False
+        for move in range(1, 501):
+            # needs mechanic that allows second move after hit
+            if move % 2 == 1:
+                player_to_play = self.starting_player
+                waiting_player = self.second_player
+            if move % 2 == 0:
+                player_to_play = self.second_player
+                waiting_player = self.starting_player
+            # ceil will ensure proper indexing
+            move_index = ceil(move / 2)
+
+            chosen_move = player_to_play.strategy_object.choose_move(move_index=move_index)
+            # shoot at the other player
+            shoot_bool_list = waiting_player.shoot_at_index(chosen_move)
+            move_hit_ship = shoot_bool_list[0]
+            move_destroyed_board = shoot_bool_list[1]
+            # add to history
+            player_to_play.strategy_object.move_history.append(MoveHistoryElement(move_index=move_index,
+                                                                                  hit_ship=move_hit_ship,
+                                                                                  chosen_index=chosen_move,
+                                                                                  total_move_index=move
+                                                                                  ))
+            # print(f"player: {player_to_play}, history: {player_to_play.strategy_object.move_history}")
+            # print(f"move number {move}, move_index {move_index}")
+            # if move_hit_ship:
+            #     print(f"move hit ship")
+            # stops when hit destroyed board
+            # ~ 3 times faster than asking alive every time
+            if move_destroyed_board:
+                success = True
+                break
+            # # stops after one of the boards die
+            # if not self.board1.is_alive() or not self.board2.is_alive():
+            #     success = True
+            #     break
+        if success:
+            if self.board1.is_alive():
+                victorious_player = 1
+            if self.board2.is_alive():
+                victorious_player = 2
+            return BattleSummary(victorious_player=victorious_player,
+                                 player1_history=self.board1.strategy_object.move_history,
+                                 player2_history=self.board2.strategy_object.move_history)
+        else:
+            raise TimeoutError("Could not finish battle in 500 tries")
+
+
+@dataclass
+class BattleSummary():
+    victorious_player: int
+    player1_history: list['MoveHistoryElement']
+    player2_history: list['MoveHistoryElement']
+
+    def __str__(self):
+        out_str = f"""Player {self.victorious_player} won the game"""
+        return out_str
+
+
+class War():
+    def __init__(self, strategy1_class: Strategy, strategy2_class: Strategy, number_of_games: int,
+                 fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1):
+        self.war_summary = WarSummary()
+        for x in range(number_of_games):
+            battle_instance = Battle(strategy1_class=strategy1_class, strategy2_class=strategy2_class,
+                                     fleet=fleet, side_length=side_length, starting_player=starting_player)
+            self.war_summary.battle_summary_list.append(battle_instance.play())
+        self.war_summary.calculate_summary()
+
+
+class WarSummary():
+    def __init__(self):
+        self.battle_summary_list: list['BattleSummary'] = []
+        self.number_of_battles: int = 0
+        self.player1_victories: int = 0
+        self.player2_victories: int = 0
+        self.player1_victory_percentage: float = 0
+        self.player2_victory_percentage: float = 0
+
+    def calculate_summary(self):
+        self.number_of_battles = len(self.battle_summary_list)
+        for battle in self.battle_summary_list:
+            if battle.victorious_player == 1:
+                self.player1_victories += 1
+            if battle.victorious_player == 2:
+                self.player2_victories += 1
+        self.player1_victory_percentage = (self.player1_victories / self.number_of_battles) * 100
+        self.player2_victory_percentage = (self.player2_victories / self.number_of_battles) * 100
+
+    def __str__(self):
+        out_str = f"""Number of battles: {self.number_of_battles}\n
+        Player 1:\n
+        Number of victories: {self.player1_victories}\n
+        Victory percentage: {round(self.player1_victory_percentage, 3)}%\n
+        Player 2:\n
+        Number of victories: {self.player2_victories}\n
+        Victory percentage: {round(self.player2_victory_percentage, 3)}%\n"""
+        return out_str
+
+
 if __name__ == "__main__":
-    my_board = Board(side_length=10, fleet_class=BasicFleet)
-    ship1 = Destroyer()
+    # my_board = Board(side_length=10, fleet_class=BasicFleet)
+
+    # my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy)
+    # my_battle_summary = my_battle.play()
+
+    # print(f" history of player 1{my_battle_summary.player1_history}\n player 1 board\n{my_battle.board1}")
+
+    t0 = time.time()
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=1000,
+                 starting_player=2)
+    t1 = time.time()
+
+    total = abs(t0 - t1)
+
+    print(f"took {total} seconds")
+    print(my_war.war_summary)
     # my_board.add_ship_to_board(index=[1, 1], orientation=Orientation.Right, ship=ship1)
     # my_board.add_fleet_to_board()
     # my_board.get_element_of_index(5, 5).shot_at = True
@@ -462,15 +632,15 @@ if __name__ == "__main__":
     # my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
     # print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
     # print(f"\n{my_board}\n")
-    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 1])}")
-    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 2])}")
-    print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 3])}")
+    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 1])}")
+    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 2])}")
+    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 3])}")
     # print(f"\n{my_board}\n")
-    for i in range(1, 11):
-        for j in range(1, 6):
-            my_board.shoot_at_index(index=[j, i])
+    # for i in range(1, 11):
+    #     for j in range(1, 6):
+    #         my_board.shoot_at_index(index=[j, i])
     # print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
-    print(f"\n{my_board}\n")
+    # print(f"\n{my_board}\n")
     # print(f"board is alive?: {my_board.is_alive()}")
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
