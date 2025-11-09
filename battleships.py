@@ -527,19 +527,11 @@ class Battle():
                                                                                   chosen_index=chosen_move,
                                                                                   total_move_index=move
                                                                                   ))
-            # print(f"player: {player_to_play}, history: {player_to_play.strategy_object.move_history}")
-            # print(f"move number {move}, move_index {move_index}")
-            # if move_hit_ship:
-            #     print(f"move hit ship")
             # stops when hit destroyed board
             # ~ 3 times faster than asking alive every time
             if move_destroyed_board:
                 success = True
                 break
-            # # stops after one of the boards die
-            # if not self.board1.is_alive() or not self.board2.is_alive():
-            #     success = True
-            #     break
         if success:
             if self.board1.is_alive():
                 victorious_player = 1
@@ -613,7 +605,7 @@ if __name__ == "__main__":
     # print(f" history of player 1{my_battle_summary.player1_history}\n player 1 board\n{my_battle.board1}")
 
     t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=1000,
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=10000,
                  starting_player=2)
     t1 = time.time()
 

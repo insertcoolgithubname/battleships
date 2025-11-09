@@ -292,3 +292,35 @@ def test_battle():
         assert my_battle_summary.player1_history[0].move_index == (
                 my_battle_summary.player1_history[0].total_move_index - 1)
         assert my_battle_summary.player1_history[0].total_move_index == 2
+
+
+def test_war():
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+                 starting_player=1)
+    my_summary = my_war.war_summary
+    for battle_summary in my_summary.battle_summary_list:
+        # player starting order works
+        assert battle_summary.player1_history[0].move_index == (
+            battle_summary.player1_history[0].total_move_index)
+        assert battle_summary.player1_history[0].total_move_index == 1
+        # second player has the second
+        assert battle_summary.player2_history[0].move_index == (
+                battle_summary.player2_history[0].total_move_index - 1)
+        assert battle_summary.player2_history[0].total_move_index == 2
+    # summary logic works
+    number_of_battles = len(my_summary.battle_summary_list)
+    player1_victories = 0
+    player2_victories = 0
+    for battle in my_summary.battle_summary_list:
+        if battle.victorious_player == 1:
+            player1_victories += 1
+        if battle.victorious_player == 2:
+            player2_victories += 1
+    # inner logic works
+    assert my_summary.player1_victory_percentage == (my_summary.player1_victories / my_summary.number_of_battles) * 100
+    assert my_summary.player2_victory_percentage == (my_summary.player2_victories / my_summary.number_of_battles) * 100
+    # inner logic is equal to test on top
+    assert my_summary.player1_victories == player1_victories
+    assert my_summary.player2_victories == player2_victories
+    assert my_summary.player1_victory_percentage == (player1_victories / number_of_battles) * 100
+    assert my_summary.player2_victory_percentage == (player2_victories / number_of_battles) * 100
