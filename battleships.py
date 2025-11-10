@@ -632,7 +632,22 @@ class WarSummary():
         return out_str
 
 
+def merge_war_summaries(war_summaries: list['WarSummary']) -> 'WarSummary':
+    out_war_summary = WarSummary()
+    for war_summary in war_summaries:
+        out_war_summary.battle_summary_list.extend(war_summary.battle_summary_list)
+    # recompute summary
+    out_war_summary.calculate_summary()
+    return out_war_summary
+
+
 if __name__ == "__main__":
+
+    # Multiprocessing Wars
+    # Must be in __name__ == "__main__" or multiprocessing breaks
+
+
+
     # my_board = Board(side_length=10, fleet_class=BasicFleet)
 
     # my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy)

@@ -1,5 +1,5 @@
 from battleships import (Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement,
-                         Strategy, RandomStrategy, Battle, War, BattleSummary, WarSummary)
+                         Strategy, RandomStrategy, Battle, War, BattleSummary, WarSummary, merge_war_summaries)
 import pytest
 
 test_complexity: int = 100
@@ -446,3 +446,34 @@ def test_war():
     assert my_summary.player2_victories == player2_victories
     assert my_summary.player1_victory_percentage == (player1_victories / number_of_battles) * 100
     assert my_summary.player2_victory_percentage == (player2_victories / number_of_battles) * 100
+
+
+def test_merge_war_summary():
+    # also sort of tests WarSummary
+    war1 = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+               starting_player=1)
+    summary1 = war1.war_summary
+    war2 = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+               starting_player=1)
+    summary2 = war2.war_summary
+    war3 = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+               starting_player=1)
+    summary3 = war3.war_summary
+    merged_summary = merge_war_summaries(war_summaries=[summary1, summary2, summary3])
+    assert merged_summary.number_of_battles == (summary1.number_of_battles +
+                                                summary2.number_of_battles +
+                                                summary3.number_of_battles)
+    assert merged_summary.player1_victories == (summary1.player1_victories +
+                                                summary2.player1_victories +
+                                                summary3.player1_victories)
+    assert merged_summary.player2_victories == (summary1.player2_victories +
+                                                summary2.player2_victories +
+                                                summary3.player2_victories)
+    assert merged_summary.player1_victory_percentage == ((merged_summary.player1_victories /
+                                                          merged_summary.number_of_battles) * 100)
+    assert merged_summary.player2_victory_percentage == ((merged_summary.player2_victories /
+                                                          merged_summary.number_of_battles) * 100)
+    # contains the entirety of merged summaries
+    assert all(elem in (merged_summary.battle_summary_list) for elem in summary1.battle_summary_list)
+    assert all(elem in (merged_summary.battle_summary_list) for elem in summary2.battle_summary_list)
+    assert all(elem in (merged_summary.battle_summary_list) for elem in summary2.battle_summary_list)
