@@ -237,7 +237,9 @@ def test_battle():
         my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, starting_player=1)
         my_battle_summary: 'BattleSummary' = my_battle.play()
         win_number_of_hits = 0
+        win_number_of_misses = 0
         other_number_of_hits = 0
+        other_number_of_misses = 0
         for index, history_element in enumerate(my_battle_summary.player1_history, start=1):
             assert history_element.move_index == index
             if history_element.hit_ship:
@@ -245,6 +247,33 @@ def test_battle():
                     win_number_of_hits += 1
                 if my_battle_summary.victorious_player == 2:
                     other_number_of_hits += 1
+            else:
+                match my_battle_summary.victorious_player:
+                    case 1:
+                        win_number_of_misses += 1
+                    case 2:
+                        other_number_of_misses += 1
+            if index != 1:
+                # gets the previous element and if it hit, next move should be player1
+                if my_battle_summary.player1_history[index - 2].hit_ship is True:
+                    assert my_battle_summary.player1_history[index - 2].total_move_index == (
+                        history_element.total_move_index - 1)
+                elif my_battle_summary.player1_history[index - 2].hit_ship is False:
+                    # index of missed shot + 1 is not present in player who missed
+                    # that means player who missed does not play again
+                    index_to_find = my_battle_summary.player1_history[index - 2].total_move_index + 1
+                    success = False
+                    for local_history_element in my_battle_summary.player1_history:
+                        if local_history_element.total_move_index == index_to_find:
+                            success = True
+                    assert not success
+                    # it is present in second player
+                    success = False
+                    for local_history_element in my_battle_summary.player2_history:
+                        if local_history_element.total_move_index == index_to_find:
+                            success = True
+                    assert success
+        # loop through player2 history
         for index, history_element in enumerate(my_battle_summary.player2_history, start=1):
             assert history_element.move_index == index
             if history_element.hit_ship:
@@ -252,16 +281,71 @@ def test_battle():
                     win_number_of_hits += 1
                 if my_battle_summary.victorious_player == 1:
                     other_number_of_hits += 1
+            else:
+                match my_battle_summary.victorious_player:
+                    case 1:
+                        other_number_of_misses += 1
+                    case 2:
+                        win_number_of_misses += 1
+            if index != 1:
+                # gets the previous element and if it hit, next move should be player2
+                if my_battle_summary.player2_history[index - 2].hit_ship is True:
+                    assert my_battle_summary.player2_history[index - 2].total_move_index == (
+                        history_element.total_move_index - 1)
+                # if it missed, the second player must have played ()
+                elif my_battle_summary.player2_history[index - 2].hit_ship is False:
+                    # index of missed shot + 1 is not present in player who missed
+                    index_to_find = my_battle_summary.player2_history[index - 2].total_move_index + 1
+                    success = False
+                    for local_history_element in my_battle_summary.player2_history:
+                        if local_history_element.total_move_index == index_to_find:
+                            success = True
+                    assert not success
+                    # it is present in second player
+                    success = False
+                    for local_history_element in my_battle_summary.player1_history:
+                        if local_history_element.total_move_index == index_to_find:
+                            success = True
+                    assert success
+
+        # winning player must hit all 20 ship squares
         assert win_number_of_hits == 20
         assert other_number_of_hits < 20
         # each board can only hit up to a 100 times on the enemy 10 * 10 grid
         assert len(my_battle_summary.player1_history) <= 100
         assert len(my_battle_summary.player2_history) <= 100
+        # one player died
         assert not my_battle.board1.is_alive() or not my_battle.board2.is_alive()
+        # number of hits plus misses must equal last move index
+        match my_battle_summary.victorious_player:
+            case 1:
+                assert my_battle_summary.player1_history[-1].move_index == (
+                    win_number_of_hits + win_number_of_misses
+                )
+                assert my_battle_summary.player2_history[-1].move_index == (
+                    other_number_of_hits + other_number_of_misses
+                )
+            case 2:
+                assert my_battle_summary.player2_history[-1].move_index == (
+                    win_number_of_hits + win_number_of_misses
+                )
+                assert my_battle_summary.player1_history[-1].move_index == (
+                    other_number_of_hits + other_number_of_misses
+                )
 
-        # ADD winning player must have taken the last turn
+        # winning player must have taken the last turn
+        if my_battle_summary.victorious_player == 1:
+            # winning player must have the bigger total move index (took last turn)
+            assert my_battle_summary.player1_history[-1].total_move_index > (
+                my_battle_summary.player2_history[-1].total_move_index
+            )
+        if my_battle_summary.victorious_player == 2:
+            # winning player must have the bigger total move index (took last turn)
+            assert my_battle_summary.player2_history[-1].total_move_index > (
+                my_battle_summary.player1_history[-1].total_move_index
+            )
 
-        # legacy tests that do not work with chaining moves        
+        # legacy tests that do not work with chaining moves
         # # victorious starting player has + 1 length on history
         # if my_battle.starting_player.is_alive():
         #     assert len(my_battle.starting_player.strategy_object.move_history) == (
@@ -279,17 +363,17 @@ def test_battle():
 
         # testing player starting order
         # first player must have the first move out of both
-        # if we did not hit first time and should not play again
+        # if we did not hit first time and should not chain move
         if not my_battle_summary.player1_history[0].hit_ship:
             assert my_battle_summary.player1_history[0].move_index == (
                 my_battle_summary.player1_history[0].total_move_index)
             assert my_battle_summary.player1_history[0].total_move_index == 1
-        # we hit first hit and should play again
+        # we hit first hit and should play again (chain move)
         else:
             assert my_battle_summary.player1_history[1].move_index == (
                 my_battle_summary.player1_history[1].total_move_index)
             assert my_battle_summary.player1_history[1].total_move_index == 2
-        # second player has the second
+        # second player has the second move
         # if we did not hit first time and should not play again
         if not my_battle_summary.player1_history[0].hit_ship:
             assert my_battle_summary.player2_history[0].move_index == (
@@ -323,16 +407,6 @@ def test_battle():
             assert my_battle_summary.player1_history[0].move_index != (
                 my_battle_summary.player1_history[0].total_move_index - 1)
             assert my_battle_summary.player1_history[0].total_move_index != 2
-
-
-        # # first player must have the first move out of both
-        # assert my_battle_summary.player2_history[0].move_index == (
-        #        my_battle_summary.player2_history[0].total_move_index)
-        # assert my_battle_summary.player2_history[0].total_move_index == 1
-        # # second player has the second
-        # assert my_battle_summary.player1_history[0].move_index == (
-        #         my_battle_summary.player1_history[0].total_move_index - 1)
-        # assert my_battle_summary.player1_history[0].total_move_index == 2
 
 
 def test_war():

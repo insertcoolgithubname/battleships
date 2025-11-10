@@ -55,7 +55,8 @@ class Board():
     """
     Player's board that contains their fleet.
     """
-    def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False, strategy_class: 'Strategy' = RandomStrategy):
+    def __init__(self, side_length: int, fleet_class: 'Fleet', empty=False,
+                 strategy_class: 'Strategy' = RandomStrategy):
         # creates matrix side_length * side_length
         self._side_length = side_length
         self._board_list = [[(OceanBoardElement()) for i in range(side_length)] for j in range(side_length)]
@@ -130,7 +131,7 @@ class Board():
 
     def shoot_at_index(self, index: list[int]) -> list[bool]:
         """
-        Sets shot at of a given index, returns list of bools, first index True if hit ship, 
+        Sets shot at of a given index, returns list of bools, first index True if hit ship,
         second if board was destroyed
         """
         element = self.get_element_of_index(index=index)
@@ -509,18 +510,23 @@ class Battle():
             # needs mechanic that allows second move after hit
             # player_to_play is currently last playing player of the last round
             # if the last player hit ship
-            skip_move_order = False
+
             # only on the second move and further
-            if move != 1:
-                # will not be undefined as it is defined at the end of the previous iteration
-                if last_player.strategy_object.move_history[-1].hit_ship:
-                    skip_move_order = True
-                    player_to_play = last_player
-                    # we do not change player_to_play
-            if move % 2 == 1 and not skip_move_order:
+
+            # determines starting player and defines last_player at the end of the first iteration
+            if move == 1:
+                starting_player_should_play = True
+            # last player is defined at the end of the last iteration
+            elif last_player.strategy_object.move_history[-1].hit_ship:
+                if last_player is self.starting_player:
+                    starting_player_should_play = True
+                elif last_player is self.second_player:
+                    starting_player_should_play = False
+
+            if starting_player_should_play:
                 player_to_play = self.starting_player
                 waiting_player = self.second_player
-            if move % 2 == 0 and not skip_move_order:
+            else:
                 player_to_play = self.second_player
                 waiting_player = self.starting_player
 
@@ -539,11 +545,6 @@ class Battle():
             else:
                 move_index = 1
 
-            # if not skip_move_order:
-            #     move_index = ceil(move / 2)
-            # else:
-            #     move_index = last_player.strategy_object.move_history[-1].move_index + 1
-
             chosen_move = player_to_play.strategy_object.choose_move(move_index=move_index)
             # shoot at the other player
             shoot_bool_list = waiting_player.shoot_at_index(chosen_move)
@@ -557,7 +558,13 @@ class Battle():
                                                                                   ))
             # stops when hit destroyed board
             # ~ 3 times faster than asking alive every time
+
+            # needed for next iteration
             last_player = player_to_play
+            # switch who should play
+            starting_player_should_play = not starting_player_should_play
+
+            # exit the battle if move destroyed board
             if move_destroyed_board:
                 success = True
                 break
@@ -630,18 +637,20 @@ if __name__ == "__main__":
 
     # my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy)
     # my_battle_summary = my_battle.play()
+    # print(my_battle_summary.player1_history)
 
     # print(f" history of player 1{my_battle_summary.player1_history}\n player 1 board\n{my_battle.board1}")
 
     t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=50000,
-                 starting_player=0)
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=10000,
+                 starting_player=1)
     t1 = time.time()
 
     total = abs(t0 - t1)
 
     print(f"took {total} seconds")
     print(my_war.war_summary)
+
     # my_board.add_ship_to_board(index=[1, 1], orientation=Orientation.Right, ship=ship1)
     # my_board.add_fleet_to_board()
     # my_board.get_element_of_index(5, 5).shot_at = True
@@ -666,4 +675,3 @@ if __name__ == "__main__":
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)
-
