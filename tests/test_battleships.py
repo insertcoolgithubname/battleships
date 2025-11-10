@@ -1,5 +1,6 @@
 from battleships import (Board, BasicFleet, Destroyer, Orientation, Flagship, BattleshipBoardElement,
-                         Strategy, RandomStrategy, Battle, War, BattleSummary, WarSummary, merge_war_summaries)
+                         Strategy, RandomStrategy, Battle, War, BattleSummary, WarSummary, merge_war_summaries,
+                         run_single_war, split_evenly, run_war_multiprocessed)
 import pytest
 
 test_complexity: int = 100
@@ -401,10 +402,13 @@ def test_battle():
             assert my_battle_summary.player1_history[0].total_move_index != 2
 
 
-def test_war():
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
-                 starting_player=1)
-    my_summary = my_war.war_summary
+def test_war(my_war_summary=None):
+    if my_war_summary is None:
+        my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+                     starting_player=1)
+        my_summary = my_war.war_summary
+    else:
+        my_summary = my_war_summary
     for battle_summary in my_summary.battle_summary_list:
         # testing player starting order
         # first player must have the first move out of both
@@ -446,6 +450,63 @@ def test_war():
     assert my_summary.player2_victories == player2_victories
     assert my_summary.player1_victory_percentage == (player1_victories / number_of_battles) * 100
     assert my_summary.player2_victory_percentage == (player2_victories / number_of_battles) * 100
+
+
+def test_run_single_war():
+    # reusing previous test
+    test_war(my_war_summary=run_single_war(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy,
+                                           number_of_games=test_complexity,
+                                           starting_player=1))
+
+
+def test_split_evenly():
+    assert split_evenly(100, 6) == [17, 17, 17, 17, 16, 16]
+    assert split_evenly(99, 6) == [17, 17, 17, 16, 16, 16]
+    assert split_evenly(97, 6) == [17, 16, 16, 16, 16, 16]
+    assert split_evenly(96, 6) == [16, 16, 16, 16, 16, 16]
+    assert split_evenly(95, 6) == [16, 16, 16, 16, 16, 15]
+    assert split_evenly(1, 6) == [1]
+    assert split_evenly(3, 6) == [1, 1, 1]
+    assert split_evenly(6, 6) == [1, 1, 1, 1, 1, 1]
+
+    assert split_evenly(50, 2) == [25, 25]
+    assert split_evenly(49, 2) == [25, 24]
+
+    with pytest.raises(ZeroDivisionError, match="integer division or modulo by zero"):
+        assert split_evenly(0, 6) == [1]
+    with pytest.raises(ZeroDivisionError, match="integer division or modulo by zero"):
+        assert split_evenly(3, 0) == [1]
+
+    # weird cases
+    assert split_evenly(3, -6) == []
+    assert split_evenly(-3, 6) == []
+
+    assert split_evenly(6465, 13) == [498, 498, 498, 498, 497, 497, 497, 497, 497, 497, 497, 497, 497]
+
+
+def test_run_war_multiprocessed():
+    summary = run_war_multiprocessed(
+        strategy1_class=RandomStrategy,
+        strategy2_class=RandomStrategy,
+        number_of_games=test_complexity,   # small!
+        starting_player=1,
+    )
+
+    # basic sanity checks
+    assert summary.number_of_battles == test_complexity
+    assert summary.player1_victories + summary.player2_victories == test_complexity
+    # percentages should add up to ~100 (float math, so allow small error)
+    assert abs((summary.player1_victory_percentage +
+                summary.player2_victory_percentage) - 100) < 0.0001
+
+    # reusing test_war code
+    test_war(my_war_summary=summary)
+
+
+def test_war_with_multiprocessing():
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=test_complexity,
+                 starting_player=1, multiprocess=True)
+    test_war(my_war_summary=my_war.war_summary)
 
 
 def test_merge_war_summary():

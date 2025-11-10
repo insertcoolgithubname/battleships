@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from colorama import init, Fore, Style, Back
 from math import ceil
 import time
+from concurrent.futures import ProcessPoolExecutor
+from os import cpu_count
 
 
 class Orientation(Enum):
@@ -593,13 +595,25 @@ class BattleSummary():
 
 class War():
     def __init__(self, strategy1_class: Strategy, strategy2_class: Strategy, number_of_games: int,
-                 fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1):
-        self.war_summary = WarSummary()
-        for x in range(number_of_games):
-            battle_instance = Battle(strategy1_class=strategy1_class, strategy2_class=strategy2_class,
-                                     fleet=fleet, side_length=side_length, starting_player=starting_player)
-            self.war_summary.battle_summary_list.append(battle_instance.play())
-        self.war_summary.calculate_summary()
+                 fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1, multiprocess=False):
+        """
+        Creates an object that runs the number of battles by creating battle objects, running play on them
+        and makes a list of battle_summaries which it uses to create war_summary
+        which is stored as self.war_summary.\n
+        when using multiprocess = True must be called inside if __name__ == "__main__":
+        """
+        if multiprocess is False:
+            self.war_summary = WarSummary()
+            for x in range(number_of_games):
+                battle_instance = Battle(strategy1_class=strategy1_class, strategy2_class=strategy2_class,
+                                         fleet=fleet, side_length=side_length, starting_player=starting_player)
+                self.war_summary.battle_summary_list.append(battle_instance.play())
+            self.war_summary.calculate_summary()
+        elif multiprocess is True:
+            self.war_summary = run_war_multiprocessed(strategy1_class=strategy1_class, strategy2_class=strategy2_class,
+                                                      number_of_games=number_of_games, fleet=fleet,
+                                                      side_length=side_length,
+                                                      starting_player=starting_player)
 
 
 class WarSummary():
@@ -641,30 +655,111 @@ def merge_war_summaries(war_summaries: list['WarSummary']) -> 'WarSummary':
     return out_war_summary
 
 
+def run_single_war(strategy1_class: Strategy, strategy2_class: Strategy, number_of_games: int,
+                   fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1) -> 'WarSummary':
+    """
+    Needed for multiprocessing, runs war by the supplied arguments. Identical to creating War object and
+    calling .war_summary
+    """
+    war_instance = War(strategy1_class=strategy1_class, strategy2_class=strategy2_class,
+                       number_of_games=number_of_games, fleet=fleet, side_length=side_length,
+                       starting_player=starting_player)
+    return war_instance.war_summary
+
+
+def split_evenly(total: int, max_chunks: int) -> list[int]:
+    """
+    Split 'total' into at most 'max_chunks' positive integers whose sum is 'total',
+    and that differ by at most 1.
+    Example: total=10, max_chunks=6 -> [2, 2, 2, 2, 1, 1]
+    """
+    chunks = min(total, max_chunks)  # don't create more chunks than total
+    base = total // chunks
+    remainder = total % chunks
+
+    out = []
+    for i in range(chunks):
+        # first 'remainder' chunks get +1
+        size = base + (1 if i < remainder else 0)
+        out.append(size)
+    return out
+
+
+def run_war_multiprocessed(strategy1_class: Strategy, strategy2_class: Strategy, number_of_games: int,
+                           fleet: 'Fleet' = BasicFleet, side_length=10, starting_player: int = 1) -> 'WarSummary':
+    # Must be in __name__ == "__main__" or multiprocessing breaks
+
+    # how many cpu cores to use at once
+    # there seems to be a small difference between 6 and 12 cores ~15%. Not worth the processor temp
+    workers = max(1, int(cpu_count() / 2))
+
+    # make a list like [1667, 1667, 1667, 1667, 1666, 1666]
+    chunks = split_evenly(total=number_of_games, max_chunks=workers)
+
+    # multiprocessing
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        # futures is a list of future "promises" that the PoolExecutor will run
+        # we then use future.result() to get the result of the func after waiting for it to finish
+
+        # creates n wars that are places in queue and workers are going to take them apart one by one
+        # is submitted as argument to the submit function, first argument is function to call
+        # much faster to call wars by number of workers and distribute their load with the smallest queue possible
+        # this is done by the split_evenly function (chunks variable)
+
+        futures = [pool.submit(
+                    run_single_war,
+                    strategy1_class,
+                    strategy2_class,
+                    chunk_size,
+                    fleet,
+                    side_length,
+                    starting_player,
+                    ) for chunk_size in chunks]
+
+        war_summaries = [f.result() for f in futures]
+        out_war_summary = merge_war_summaries(war_summaries=war_summaries)
+        return out_war_summary
+
+
 if __name__ == "__main__":
 
     # Multiprocessing Wars
     # Must be in __name__ == "__main__" or multiprocessing breaks
 
-
-
-    # my_board = Board(side_length=10, fleet_class=BasicFleet)
-
-    # my_battle = Battle(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy)
-    # my_battle_summary = my_battle.play()
-    # print(my_battle_summary.player1_history)
-
-    # print(f" history of player 1{my_battle_summary.player1_history}\n player 1 board\n{my_battle.board1}")
-
     t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=10000,
-                 starting_player=1)
+    my_war = War(strategy1_class=RandomStrategy,
+                 strategy2_class=RandomStrategy, number_of_games=5000,
+                 starting_player=1, multiprocess=True)
+
+    my_war_summary = my_war.war_summary
+
+    # my_war_summary = run_war_multiprocessed(strategy1_class=RandomStrategy,
+    #                                         strategy2_class=RandomStrategy, number_of_games=500,
+    #                                         starting_player=1)
+
     t1 = time.time()
-
     total = abs(t0 - t1)
+    print(f"took {total} seconds with multiprocessing wars")
+    print(my_war_summary)
 
-    print(f"took {total} seconds")
-    print(my_war.war_summary)
+    # t0 = time.time()
+    # my_war_summary = run_war_multiprocessed(strategy1_class=RandomStrategy,
+    #                                         strategy2_class=RandomStrategy, number_of_games=60000,
+    #                                         starting_player=1)
+    # t1 = time.time()
+    # total = abs(t0 - t1)
+    # print(f"took {total} seconds with multiprocessing battles")
+    # print(my_war_summary)
+
+    # t0 = time.time()
+    # my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=500,
+    #              starting_player=1)
+    # t1 = time.time()
+
+    # total = abs(t0 - t1)
+
+    # print(f"took {total} seconds without multiprocessing")
+    # print(my_war.war_summary)
 
     # my_board.add_ship_to_board(index=[1, 1], orientation=Orientation.Right, ship=ship1)
     # my_board.add_fleet_to_board()
@@ -690,3 +785,4 @@ if __name__ == "__main__":
     # print(my_board.restricted_indexes)
     # my_board.add_to_restricted_indexes([1, 1])
     # print(my_fleet._battleship_list[0].length)
+    pass
