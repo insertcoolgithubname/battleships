@@ -258,6 +258,7 @@ def test_battle():
                 if my_battle_summary.player1_history[index - 2].hit_ship is True:
                     assert my_battle_summary.player1_history[index - 2].total_move_index == (
                         history_element.total_move_index - 1)
+                # if it missed, the second player must have played
                 elif my_battle_summary.player1_history[index - 2].hit_ship is False:
                     # index of missed shot + 1 is not present in player who missed
                     # that means player who missed does not play again
@@ -292,7 +293,7 @@ def test_battle():
                 if my_battle_summary.player2_history[index - 2].hit_ship is True:
                     assert my_battle_summary.player2_history[index - 2].total_move_index == (
                         history_element.total_move_index - 1)
-                # if it missed, the second player must have played ()
+                # if it missed, the second player must have played
                 elif my_battle_summary.player2_history[index - 2].hit_ship is False:
                     # index of missed shot + 1 is not present in player who missed
                     index_to_find = my_battle_summary.player2_history[index - 2].total_move_index + 1
@@ -310,6 +311,7 @@ def test_battle():
 
         # winning player must hit all 20 ship squares
         assert win_number_of_hits == 20
+        # losing player cannot hit all 20
         assert other_number_of_hits < 20
         # each board can only hit up to a 100 times on the enemy 10 * 10 grid
         assert len(my_battle_summary.player1_history) <= 100
@@ -344,16 +346,6 @@ def test_battle():
             assert my_battle_summary.player2_history[-1].total_move_index > (
                 my_battle_summary.player1_history[-1].total_move_index
             )
-
-        # legacy tests that do not work with chaining moves
-        # # victorious starting player has + 1 length on history
-        # if my_battle.starting_player.is_alive():
-        #     assert len(my_battle.starting_player.strategy_object.move_history) == (
-        #                len(my_battle.second_player.strategy_object.move_history) + 1)
-        # # victorious second player has the same or more (as we can chain moves) length on history
-        # elif my_battle.second_player.is_alive():
-        #     assert len(my_battle.second_player.strategy_object.move_history) == (
-        #                len(my_battle.starting_player.strategy_object.move_history))
 
         # the total move indexes must match the player indexes combined
         bigger_total_index = max(my_battle_summary.player1_history[-1].total_move_index,
@@ -436,16 +428,6 @@ def test_war():
             assert battle_summary.player2_history[0].move_index != (
                 battle_summary.player2_history[0].total_move_index - 1)
             assert battle_summary.player2_history[0].total_move_index != 2
-
-        # obsolete
-        # player starting order works
-        # assert battle_summary.player1_history[0].move_index == (
-        #     battle_summary.player1_history[0].total_move_index)
-        # assert battle_summary.player1_history[0].total_move_index == 1
-        # # second player has the second
-        # assert battle_summary.player2_history[0].move_index == (
-        #         battle_summary.player2_history[0].total_move_index - 1)
-        # assert battle_summary.player2_history[0].total_move_index == 2
 
     # summary logic works
     number_of_battles = len(my_summary.battle_summary_list)
