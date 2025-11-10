@@ -727,62 +727,25 @@ if __name__ == "__main__":
     # Must be in __name__ == "__main__" or multiprocessing breaks
 
     t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy,
-                 strategy2_class=RandomStrategy, number_of_games=5000,
-                 starting_player=1, multiprocess=True)
 
+    my_war = War(strategy1_class=RandomStrategy,
+                 strategy2_class=RandomStrategy, number_of_games=20000,
+                 starting_player=1, multiprocess=True)
     my_war_summary = my_war.war_summary
 
-    # my_war_summary = run_war_multiprocessed(strategy1_class=RandomStrategy,
-    #                                         strategy2_class=RandomStrategy, number_of_games=500,
-    #                                         starting_player=1)
-
     t1 = time.time()
+
     total = abs(t0 - t1)
     print(f"took {total} seconds with multiprocessing wars")
     print(my_war_summary)
 
-    # t0 = time.time()
-    # my_war_summary = run_war_multiprocessed(strategy1_class=RandomStrategy,
-    #                                         strategy2_class=RandomStrategy, number_of_games=60000,
-    #                                         starting_player=1)
-    # t1 = time.time()
-    # total = abs(t0 - t1)
-    # print(f"took {total} seconds with multiprocessing battles")
-    # print(my_war_summary)
+    t0 = time.time()
+    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=20000,
+                 starting_player=1)
+    t1 = time.time()
 
-    # t0 = time.time()
-    # my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=500,
-    #              starting_player=1)
-    # t1 = time.time()
+    total = abs(t0 - t1)
 
-    # total = abs(t0 - t1)
-
-    # print(f"took {total} seconds without multiprocessing")
-    # print(my_war.war_summary)
-
-    # my_board.add_ship_to_board(index=[1, 1], orientation=Orientation.Right, ship=ship1)
-    # my_board.add_fleet_to_board()
-    # my_board.get_element_of_index(5, 5).shot_at = True
-    # print(f"\n{my_board}\n")
-    # print(f"shot at: {(my_board.get_element_of_index(index=[1, 1]).shot_at)}")
-    # print(my_board.fleet_object.battleship_list)
-    # print(f"the ship fits?: {my_board.check_if_ship_fits(ship=ship, index=[1, 1], orientation=Orientation.Right)}")
-    # my_board.add_ship_to_board(ship=ship1, index=[10, 1], orientation=Orientation.Right)
-    # my_board.add_ship_to_board(ship=ship2, index=[6, 4], orientation=Orientation.Up)
-    # print(f"Shooting at {[10, 1]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 1])}")
-    # print(f"\n{my_board}\n")
-    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 1])}")
-    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 2])}")
-    # print(f"Shooting at {[10, 2]} Shot was fatal?: {my_board.shoot_at_index(index=[1, 3])}")
-    # print(f"\n{my_board}\n")
-    # for i in range(1, 11):
-    #     for j in range(1, 6):
-    #         my_board.shoot_at_index(index=[j, i])
-    # print(f"Shooting at {[10, 3]} Shot was fatal?: {my_board.shoot_at_index(index=[10, 3])}")
-    # print(f"\n{my_board}\n")
-    # print(f"board is alive?: {my_board.is_alive()}")
-    # print(my_board.restricted_indexes)
-    # my_board.add_to_restricted_indexes([1, 1])
-    # print(my_fleet._battleship_list[0].length)
+    print(f"took {total} seconds without multiprocessing")
+    print(my_war.war_summary)
     pass
