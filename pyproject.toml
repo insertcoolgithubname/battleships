@@ -1,0 +1,17 @@
+[project]
+name = "battleships"
+version = "0.1.0"
+description = "A python battleship game emulator meant for statistical analysis"
+authors = [
+    {name = "insertcoolgithubname"}
+]
+readme = "README.md"
+requires-python = ">=3.12"  
+dependencies = [
+    "colorama (>=0.4.6,<0.5.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
