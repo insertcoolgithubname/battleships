@@ -721,8 +721,7 @@ def run_war_multiprocessed(strategy1_class: Strategy, strategy2_class: Strategy,
         return out_war_summary
 
 
-if __name__ == "__main__":
-
+def main():
     # Multiprocessing Wars
     # Must be in __name__ == "__main__" or multiprocessing breaks
 
@@ -748,4 +747,7 @@ if __name__ == "__main__":
 
     # print(f"took {total} seconds without multiprocessing")
     # print(my_war.war_summary)
-    pass
+
+
+if __name__ == "__main__":
+    main()
