@@ -729,7 +729,7 @@ if __name__ == "__main__":
     t0 = time.time()
 
     my_war = War(strategy1_class=RandomStrategy,
-                 strategy2_class=RandomStrategy, number_of_games=20000,
+                 strategy2_class=RandomStrategy, number_of_games=1000,
                  starting_player=1, multiprocess=True)
     my_war_summary = my_war.war_summary
 
@@ -739,13 +739,13 @@ if __name__ == "__main__":
     print(f"took {total} seconds with multiprocessing wars")
     print(my_war_summary)
 
-    t0 = time.time()
-    my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=20000,
-                 starting_player=1)
-    t1 = time.time()
+    # t0 = time.time()
+    # my_war = War(strategy1_class=RandomStrategy, strategy2_class=RandomStrategy, number_of_games=20000,
+    #              starting_player=1)
+    # t1 = time.time()
 
-    total = abs(t0 - t1)
+    # total = abs(t0 - t1)
 
-    print(f"took {total} seconds without multiprocessing")
-    print(my_war.war_summary)
+    # print(f"took {total} seconds without multiprocessing")
+    # print(my_war.war_summary)
     pass
